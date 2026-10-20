@@ -56,7 +56,7 @@ export default function App() {
 
   async function searchBooks(event) {
     //prevent the page from reloading the page
-    event.PreventDefault();
+    event.preventDefault();
     const query = subject.trim();
     if (!query) return;
 
@@ -65,8 +65,9 @@ export default function App() {
     setError("");
     try {
       const url = new URL(
-        //Google Books API: "https://www.googleapis.com/books/v1/volumes"
-        "https://www.googleapis.com/books/v1/volumes"
+        //Google Books API: "https://www.googleapis.com/books/v1/volumes" it didn't work
+        // I used Open Library API
+        "https://openlibrary.org/search.json"
       );
       url.searchParams.set("q", query);
       url.searchParams.set("maxResults", "20");
@@ -79,9 +80,9 @@ export default function App() {
       }
 
      const data = await response.json();
-      setBooks(data.items || []);
+      setBooks(data.docs || []);
 
-      if (!data.items?.length) {
+      if (!data.docs?.length) {
         setError("Keine Bücher gefunden. Bitte suchen Sie nach einem anderen Begriff.");
       }
 
@@ -98,7 +99,7 @@ export default function App() {
         <h1>Finde dein nächstes Lieblingsbuch</h1>
         <p className='subtitle'>Finde Bücher zu deinen Interessen und entdecke Neues.</p>
 
-        <form className='serach-form' onSubmit={searchBooks}>
+        <form className='search-form' onSubmit={searchBooks}>
           <input
           type="text"
           value={subject}
@@ -116,7 +117,7 @@ export default function App() {
         
         {!loading && books.length > 0 && (
           <h2>
-            Finde {books.length} Bücher zu Thema {'Subject'}
+             {books.length} Bücher zum Thema "{subject}" gefunden
           </h2>
         )}
         <div className='book-list'>
