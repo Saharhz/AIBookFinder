@@ -1,49 +1,50 @@
 import { useState } from 'react'
 import './App.css'
 
-function BookCard({book}) {
-  const info = book.volumeInfo || {};
+function BookCard({ book }) {
+  const coverUrl = book.cover_i
+    ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+    : null;
 
   return (
     <>
      <article className="book-card">
-      {info.imageLinks?.thumbnail ? (
+      {coverUrl ? (
         <img
           className="book-cover"
-          src={info.imageLinks.thumbnail.replace(
-            "http://",
-            "https://"
-          )}
-          alt={`Cover of ${info.title || "Unbenanntes Buch"}`}
+          src={coverUrl}
+          alt={`Cover von ${book.title || "Unbekanntes Buch"}`}
         />
       ) : (
         <div className="book-cover placeholder">
-          Cover nicht verfügbar
+          Kein Cover verfügbar
         </div>
       )}
 
-        <div className='book-info'>
-          <h2>{info.title || 'Unbenanntes Buch'}</h2>
-          <p className='author'>
-            {info.author?.join(", ") || 'Autor unbekannt'}
+      <div className="book-info">
+        <h2>{book.title || "Unbekannter Titel"}</h2>
+
+        <p className="author">
+          {book.author_name?.join(", ") || "Autor unbekannt"}
+        </p>
+
+        {book.first_publish_year && (
+          <p className="published">
+            Erstveröffentlichung: {book.first_publish_year}
           </p>
-          <p className='description'>
-            {info.description ? info.description.replace(/<[^>]*>/g, "").slice(0.400)
-          : "Keine Beschreibung verfügbar"  
-          }
-          </p>
-          {info.publishedDate && (
-            <p className='published'>
-              Published: {info.publishedDate}
-            </p>
-          )}
-          {info.infoLink && (
-            <a href={info.infoLink} target="_blank" rel="noreferrer">
-              "Buchdetails anzeigen ↗"
-            </a>
-          )}
-        </div>
-      </article>
+        )}
+
+        {book.key && (
+          <a
+            href={`https://openlibrary.org${book.key}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buchdetails ansehen ↗
+          </a>
+        )}
+      </div>
+    </article>
     </>
   )
 }
@@ -53,12 +54,20 @@ export default function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [recommendations, setRecommendations] = useState([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useStae(false);
+
 
   async function searchBooks(event) {
     //prevent the page from reloading the page
     event.preventDefault();
+     console.log("1. Suchfunktion wurde gestartet!");
     const query = subject.trim();
-    if (!query) return;
+
+    if (!query) {
+    console.log("Kein Suchbegriff eingegeben.");
+    return;
+    }
 
     setLoading(true);
     setBooks([]);
@@ -70,16 +79,25 @@ export default function App() {
         "https://openlibrary.org/search.json"
       );
       url.searchParams.set("q", query);
-      url.searchParams.set("maxResults", "20");
-      url.searchParams.set("orderBy", "relevance");
-      url.searchParams.set("printType", "books");
+      url.searchParams.set("limit", "20");
+      url.searchParams.set(
+      "fields",
+      "key,title,author_name,first_publish_year,cover_i,description"
+    );
+
+    console.log("2. API-URL:", url.toString());
 
       const response = await fetch(url);
+      console.log("3. HTTP-Status:", response.status);
+
       if (!response.ok) {
-      throw new Error("Der Zugriff auf den Buchkatalog ist derzeit nicht möglich.");
+      throw new Error(`Fehler beim Buchkatalog: HTTP ${response.status}`);
       }
 
      const data = await response.json();
+     console.log("4. Gesamte API-Antwort:", data);
+    console.log("5. Erstes Buch:", data.docs?.[0]);
+
       setBooks(data.docs || []);
 
       if (!data.docs?.length) {
@@ -87,10 +105,41 @@ export default function App() {
       }
 
       } catch (error) {
+        console.error("Fehler bei der Buchsuche:", error);
         setError(error.message || "Es ist ein Fehler aufgetreten.");
       } finally {
       setLoading(false);
     }
+  }
+  async function getRecommendations(foundbooks, query) {
+    setRecommendationsLoading(true);
+    setRecommendations([]);
+
+    try {
+      const response = await fetch ("http://localhost:3001/api/recommendations",
+        {method: "POST",
+          headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify ({
+          subject: query,
+          books: foundbooks,
+        }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error ("Empfehlung konnte nicht geladen werden");
+      }
+      const data = await response.json();
+      setRecommendations(data.recommendations || []);
+    } catch (error) {
+      console.error("Fehler bei Empfelung:", error);
+      setError("Die Empfehlung konnte nicht erstellt werden");
+    } finally {
+      setRecommendationsLoading(false)
+    }
+
   }
   return (
     <main className='app'>
@@ -120,11 +169,14 @@ export default function App() {
              {books.length} Bücher zum Thema "{subject}" gefunden
           </h2>
         )}
-        <div className='book-list'>
-          {books.map ((book) => (
-            <BookCard key={book.id} book = {book} />
-          ))}
-        </div>
+        <div className="book-list">
+  {books.map((book, index) => (
+    <BookCard
+      key={book.key || `${book.title}-${index}`}
+      book={book}
+    />
+  ))}
+</div>
       </section>
     </main>
   )
