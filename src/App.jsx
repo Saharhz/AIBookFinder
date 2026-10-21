@@ -98,7 +98,11 @@ export default function App() {
      console.log("4. Gesamte API-Antwort:", data);
     console.log("5. Erstes Buch:", data.docs?.[0]);
 
-      setBooks(data.docs || []);
+      // setBooks(data.docs || []);
+
+      const foundbooks = data.docs || [];
+      setBooks(foundbooks);
+      await getRecommendations(foundbooks, query);
 
       if (!data.docs?.length) {
         setError("Keine Bücher gefunden. Bitte suchen Sie nach einem anderen Begriff.");
@@ -170,13 +174,35 @@ export default function App() {
           </h2>
         )}
         <div className="book-list">
-  {books.map((book, index) => (
-    <BookCard
-      key={book.key || `${book.title}-${index}`}
-      book={book}
-    />
-  ))}
+  {books.map((book) => {
+    const recommendation = recommendations.find(
+      (item) => item.key === book.key
+    );
+
+    return (
+      <div key={book.key || book.title}>
+        <BookCard book={book} />
+
+        {recommendationsLoading && (
+          <p>Empfehlung wird berechnet …</p>
+        )}
+
+        {recommendation && (
+          <div className="recommendation">
+            <strong>
+              Warum könnte das Buch passen?
+            </strong>
+            <p>{recommendation.reason}</p>
+            <p>
+              Übereinstimmung: {recommendation.score} %
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  })}
 </div>
+
       </section>
     </main>
   )
