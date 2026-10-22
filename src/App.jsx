@@ -55,7 +55,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [recommendations, setRecommendations] = useState([]);
-  const [recommendationsLoading, setRecommendationsLoading] = useStae(false);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
 
 
   async function searchBooks(event) {
@@ -136,10 +136,16 @@ export default function App() {
         throw new Error ("Empfehlung konnte nicht geladen werden");
       }
       const data = await response.json();
+      console.log(
+  "Vollständige Serverantwort:",
+  JSON.stringify(data, null, 2)
+);
+     
       setRecommendations(data.recommendations || []);
+       console.log("Empfehlungen:", data.recommendations);
     } catch (error) {
       console.error("Fehler bei Empfelung:", error);
-      setError("Die Empfehlung konnte nicht erstellt werden");
+      setError(`Empfehlungsfehler: ${error.message}`);
     } finally {
       setRecommendationsLoading(false)
     }
@@ -176,7 +182,8 @@ export default function App() {
         <div className="book-list">
   {books.map((book) => {
     const recommendation = recommendations.find(
-      (item) => item.key === book.key
+      (item) => 
+        (item.key && item.key === book.key || item.title === book.title)
     );
 
     return (

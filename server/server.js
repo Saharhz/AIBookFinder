@@ -25,14 +25,36 @@ app.post("/api/recommendations", (req, res) => {
       error: "Bitte Thema und Bücher übertragen",
     });
   }
-  const keywords = subject
+  /* const keywords = subject
   .toLowerCase()
   .split(/[\s,.;:!?]+/)
-  .filter((word) => word.length > 12);
+  .filter((word) => word.length > 12); */
 
-  const rercommendattions = books.map((book) => {
+  const normalizeWords = (value) => {
+    const text = Array.isArray(value) ? value.join(" ") : String((value ?? ""));
+
+    return text
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .match(/[a-z0-9]+/g) || [];
+  };
+
+  const keywords = [
+    ...new Set(
+      normalizeWords (subject).filter((word) => word.length > 2)
+    ),
+  ];
+
+  const recommendations = books.map((book) => {
     const title = book.title || "Unbekannte Title";
-    const searchableText = [
+
+    const titleWords = new Set(normalizeWords(title));
+  const authorWords = new Set(normalizeWords(book.author_name));
+  const subjectWords = new Set(normalizeWords(book.subject));
+  const descriptionWords = new Set(normalizeWords(book.description));
+
+    /* const searchableText = [
       title,
       ...(book.subject || []),
       ...(book.author_name || []),
@@ -40,11 +62,39 @@ app.post("/api/recommendations", (req, res) => {
 
     ]
     .join(" ")
-    .toLocaleLowerCase();
+    .toLocaleLowerCase(); */
     
-    const matches = keywords.filter((word) => 
-    searchableText.includes(word));
-    const score = keywords.length?Math.round((matches.length / keywords.length) * 100) : 0;
+    /* const matches = keywords.filter((word) => 
+    searchableText.includes(word)); */
+
+    const matches = keywords.filter(
+    (word) =>
+      titleWords.has(word) ||
+      authorWords.has(word) ||
+      subjectWords.has(word) ||
+      descriptionWords.has(word)
+  );
+
+  const points = keywords.reduce((total, word) => {
+    if (titleWords.has(word)) return total + 3;
+    if (subjectWords.has(word)) return total +2;
+
+    if (authorWords.has(word) || descriptionWords.has(word))
+    {
+      return total + 1;
+    }
+    return total
+  }, 0);
+
+  const maxPoints = keywords.length * 3;
+
+const score = maxPoints > 0
+  ? Math.round((points / maxPoints) * 100)
+  : 0;
+      
+
+    // const score = keywords.length ? Math.round((points / keywords.length * 1) * 100) : 0;
+    console.log({ keywords, points, score });
 
     let reason;
 
@@ -55,21 +105,21 @@ app.post("/api/recommendations", (req, res) => {
         `vorkommen: ${matches.join(", ")}.`;
     } else {
       reason = 
-      "Dieses Buch wurde bei deiner Suche gefunden. " +
-        "Die verfügbaren Angaben zeigen noch keine eindeutige " +
-        "Übereinstimmung mit deinen Suchbegriffen.";
+        "In den verfügbaren Buchdaten wurden keine passenden " +
+      "Suchbegriffe gefunden. Das bedeutet nicht automatisch, " +
+      "dass das Buch ungeeignet ist.";
     }
     return {
-      key: books.key,
+      key: book.key,
       title,
       score,
       reason,
     };
   });
-  rercommendattions.sort((a,b) => b.score - a.score);
+  recommendations.sort((a,b) => b.score - a.score);
   res.json({
     subject,
-    rercommendattions,
+    recommendations,
   });
 });
 
